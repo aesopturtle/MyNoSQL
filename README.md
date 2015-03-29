@@ -1,5 +1,7 @@
 # MyNoSQL
-This node script simply reads data from MySQL tables and writes them to MongoDB collections.  
+In general, NoSQL is by no means to replace SQL.
+However, in some circumstances, we may need to dump the whole SQL data into NoSQL.
+This node script just does that. It simply reads data from MySQL tables and writes them to MongoDB collections.
 The input can be in the form of the followings:  
 * String of a source table name.  
   For example,  
