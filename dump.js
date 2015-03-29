@@ -10,8 +10,6 @@ var config = require('./config.js');
 var pool = mysql.createPool(config.connections.mysql);
 
 module.exports = {
-    cleanSource: cleanSource,
-
     /**
      * Dumps data from MySQL tables to MongoDB collections.
      * The input can be in the form of the followings:
@@ -62,6 +60,9 @@ function dumpTableToCollection(sourceTableName, destinationCollectionName) {
 
     var rowCountPromise = getSqlRowCount(sourceTableName);
     rowCountPromise.done(function (rowCount) {
+        // chunkSize indicates how many rows to take per once SQL statement.
+        // If the chunkSize is less than the total number of rows, multiple statements will be sent for query.
+        // The value of -1 means no limit (take all).
         var chunkSize = -1;
         var sqlStatements = generateSqlQueries(rowCount, sourceTableName, chunkSize);
 
@@ -119,16 +120,6 @@ function dumpTablesToNamedCollections(tableCollectionMap) {
     );
 
     return defer.promise;
-}
-
-function cleanSource() {
-    var sql = 'update author set author.cache = null, author.cachePrinterFriendly = null where 1=1;' +
-        'update book set book.cache = null, book.cachePrinterFriendly = null , book.cacheEbook = null where 1=1;' +
-        'update conferenceproceedings set conferenceproceedings.cache = null, conferenceproceedings.cachePrinterFriendly = null where 1=1;' +
-        'update page set page.cache = null, page.cachePrinterFriendly = null, page.cacheEbook = null where 1=1;' +
-        'update cachedvalue set value = "" where 1=1;';
-
-    return getSqlRecords(sql);
 }
 
 function generateSqlQueries(rowCount, sourceTableName, chunkSize) {

@@ -24,3 +24,8 @@ The input can be in the form of the followings:
 
 The returned object is of a Q.promise type which can be used to perform further operations upon done, error, etc.
 
+## Database Configuration
+The database configuration is specified in [config.js].
+
+## Example
+Please take a look at [example.js] for how to call the module.
