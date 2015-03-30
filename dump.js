@@ -32,7 +32,7 @@ module.exports = {
         } else {
             var type = typeof sourceTableNames;
 
-            switch(type) {
+            switch (type) {
                 case 'string':
                     promise = dumpTableToCollection(sourceTableNames);
                     break;
@@ -58,14 +58,13 @@ function dumpTableToCollection(sourceTableName, destinationCollectionName) {
         destinationCollectionName = sourceTableName;
     }
 
-    var rowCountPromise = getSqlRowCount(sourceTableName);
-    rowCountPromise.done(function (rowCount) {
-        // chunkSize indicates how many rows to take per once SQL statement.
-        // If the chunkSize is less than the total number of rows, multiple statements will be sent for query.
-        // The value of -1 means no limit (take all).
-        var chunkSize = -1;
-        var sqlStatements = generateSqlQueries(rowCount, sourceTableName, chunkSize);
+    // chunkSize indicates how many rows to take per once SQL statement.
+    // If the chunkSize is less than the total number of rows, multiple statements will be sent for query.
+    // The value of -1 means no limit (take all).
+    var chunkSize = -1;
 
+    var sqlQueriesPromise = generateSqlQueries(sourceTableName, chunkSize);
+    sqlQueriesPromise.done(function (sqlStatements) {
         var recordsPromise = getSqlRecords(sqlStatements);
         recordsPromise.done(function (records) {
             var insertPromise = insertToMongo(destinationCollectionName, records);
@@ -123,6 +122,8 @@ function dumpTablesToNamedCollections(tableCollectionMap) {
 }
 
 function generateSqlQueries(rowCount, sourceTableName, chunkSize) {
+    var defer = Q.defer();
+
     var sqlStatements = [];
     var startRow = 0;
     var sql = '';
@@ -131,18 +132,24 @@ function generateSqlQueries(rowCount, sourceTableName, chunkSize) {
         sql = format('SELECT * FROM {0}', sourceTableName);
         sqlStatements.push(sql);
 
-        return sqlStatements;
+        defer.resolve(sqlStatements);
+        return defer.promise;
     }
 
-    do {
-        sql = format('SELECT * FROM {0} LIMIT {1}, {2};', sourceTableName, startRow, chunkSize);
-        sqlStatements.push(sql);
+    var rowCountPromise = getSqlRowCount(sourceTableName);
+    rowCountPromise.done(function (rowCount) {
+        do {
+            sql = format('SELECT * FROM {0} LIMIT {1}, {2};', sourceTableName, startRow, chunkSize);
+            sqlStatements.push(sql);
 
-        rowCount -= chunkSize;
-        startRow += chunkSize;
-    } while (rowCount > 0);
+            rowCount -= chunkSize;
+            startRow += chunkSize;
+        } while (rowCount > 0);
 
-    return sqlStatements;
+        defer.resolve(sqlStatements);
+    });
+
+    return defer.promise;
 }
 
 function getSqlRowCount(sourceTableName) {
@@ -225,7 +232,7 @@ function insertToMongo(collectionName, records) {
             config.connections.mongo.port,
             {}
         ),
-        { native_parser: true }
+        {native_parser: true}
     );
 
     db.open(function (err, db) {
@@ -237,7 +244,7 @@ function insertToMongo(collectionName, records) {
         var collection = db.collection(collectionName);
         collection.deleteMany({}, function () {
         });
-        var batch = collection.initializeUnorderedBulkOp({ userLegacyOps: true });
+        var batch = collection.initializeUnorderedBulkOp({userLegacyOps: true});
         async.forEach(records, function (record) {
             batch.insert(record);
         });
